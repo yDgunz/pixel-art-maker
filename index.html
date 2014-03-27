@@ -1,0 +1,184 @@
+<!doctype html>
+<html>
+<head>
+
+	<script type="text/javascript" src="jquery-1.10.2.min.js"></script>
+
+	<style>
+	* {
+	  -webkit-user-select: none;
+	}
+	</style>
+
+</head>
+
+<body>
+
+	<canvas id="mainCanvas" style="border:1px solid black;"></canvas>
+	<canvas id="toolbarCanvas" style="border: 1px solid black;"></canvas>
+
+	<br/>
+
+	<button onclick="newCanvas();">New</button>
+	Resolution<input id="resolution" type="text" value="50"></input>
+	<button onclick="downloadCanvas();">Download</button>
+	<button onclick="undo();">Undo</button>
+
+<script>
+
+var canvas = $('#mainCanvas')[0];
+var context = canvas.getContext('2d');
+var canvasSize = "800";
+canvas.height = canvasSize;
+canvas.width = canvasSize;
+var toolbarCanvas = $('#toolbarCanvas')[0];
+var toolbarContext = toolbarCanvas.getContext('2d');
+toolbarCanvas.height = canvasSize;
+toolbarCanvas.width = 100;
+var primaryColor = 'red';
+var secondaryColor = 'blue';
+var keyPressed = {};
+var colorOptions = ['red','yellow','blue','white','green','orange','purple','grey'];
+var gridColor = 'black';
+var gridLineGap = true;
+var pixelSize, resolution;
+var history = [[]];
+
+newCanvas();
+
+function newCanvas() {
+	context.clearRect(0,0,canvasSize,canvasSize);
+	drawToolBar();
+	resolution = $('#resolution').val();
+	pixelSize = canvasSize/resolution;
+
+	// not sure why i have to do this twice, but it makes the lines look better...
+	drawGrid();
+	drawGrid();
+}
+
+function drawToolBar() {
+	toolbarContext.closePath();
+	toolbarContext.fillStyle = primaryColor;
+	toolbarContext.fillRect(0,0,toolbarCanvas.width,toolbarCanvas.width/2);
+	toolbarContext.fillStyle = secondaryColor;
+	toolbarContext.fillRect(0,toolbarCanvas.width/2,toolbarCanvas.width,toolbarCanvas.width/2);
+	toolbarContext.fillStyle = 'black';
+	toolbarContext.font = "bold 30px Helvetica";
+	toolbarContext.fontStyle = "bold";
+	toolbarContext.fillText('Q',10,toolbarCanvas.width-10);
+
+	colorOptions.map(function(a,ix,arr) {
+		toolbarContext.fillStyle = a;
+		var height = (toolbarCanvas.height - toolbarCanvas.width*2)/arr.length;
+		toolbarContext.fillRect(0,toolbarCanvas.width*2+ix*height,toolbarCanvas.width,height);
+	});
+}
+
+function drawGrid() {
+	context.lineWidth = 1;
+	context.strokeStyle = gridColor;
+
+	/* draw grid on main canvas */
+	for (var i = 0; i <= resolution; i++) {
+		context.beginPath();
+		context.moveTo(0,i*pixelSize);
+		context.lineTo(canvasSize,i*pixelSize);
+		context.stroke();
+		context.closePath();
+		context.beginPath();
+		context.moveTo(i*pixelSize,0);
+		context.lineTo(i*pixelSize,canvasSize);
+		context.stroke();
+		context.closePath();	
+	}
+}
+
+var isMouseDown = false
+	, onMouseDownPosition = {};
+
+function canvasMouseDown(e) {
+	var x = Math.floor((e.clientX-canvas.offsetLeft)/canvasSize*resolution);
+	var y = Math.floor((e.clientY-canvas.offsetTop)/canvasSize*resolution);
+	history[history.length-1].push({x:x,y:y});
+	fillPixel(x,y,keyPressed["q"] ? secondaryColor : primaryColor);
+	drawGrid();
+	isMouseDown = true;
+}
+
+function canvasMouseMove(e) {
+	if(isMouseDown) {
+		var x = Math.floor((e.clientX-canvas.offsetLeft)/canvasSize*resolution);
+		var y = Math.floor((e.clientY-canvas.offsetTop)/canvasSize*resolution);
+		history[history.length-1].push({x:x,y:y});
+		fillPixel(x,y,keyPressed["q"] ? secondaryColor : primaryColor);
+		drawGrid();
+	}
+}
+
+function canvasMouseUp(e) {
+	isMouseDown = false;
+	history.push([]);
+}
+
+function fillPixel(x,y,color) {
+	context.fillStyle = color
+	var gap = gridLineGap ? 1 : 0;
+	context.fillRect(x*pixelSize+gap,y*pixelSize+gap,pixelSize-gap,pixelSize-gap);
+}
+
+function toolbarMouseMove(e) {
+	var todo;
+}
+function toolbarMouseDown(e) {
+	var y = e.clientY-toolbarCanvas.offsetTop;
+	if (y > toolbarCanvas.width*2) {
+		var colorSelection = Math.floor((y-toolbarCanvas.width*2)/(canvasSize-toolbarCanvas.width*2)*colorOptions.length);
+		if (keyPressed["q"])
+			secondaryColor = colorOptions[colorSelection];
+		else
+			primaryColor = colorOptions[colorSelection];
+		drawToolBar();
+	}
+}
+function toolbarMouseUp(e) {
+	var todo;
+}
+
+function windowKeyPress(e) {
+	if (e.keyCode == 113) {
+		keyPressed["q"] = true;
+	}
+}
+
+function windowKeyUp(e) {
+	keyPressed = {};
+}
+
+canvas.addEventListener( 'mousemove', canvasMouseMove, false );
+canvas.addEventListener( 'mousedown', canvasMouseDown, false );
+canvas.addEventListener( 'mouseup', canvasMouseUp, false );
+
+toolbarCanvas.addEventListener( 'mousemove', toolbarMouseMove, false );
+toolbarCanvas.addEventListener( 'mousedown', toolbarMouseDown, false );
+toolbarCanvas.addEventListener( 'mouseup', toolbarMouseUp, false );
+
+window.addEventListener( 'keypress', windowKeyPress, false);
+window.addEventListener( 'keyup', windowKeyUp, false);
+
+function downloadCanvas() {
+	window.open(canvas.toDataURL('image/png'));
+}
+
+function undo() {
+	var undo = history.splice(history.length-2)[0];
+	undo.map(function(a) {fillPixel(a.x,a.y,'white');});
+	drawGrid();
+	history.push([]);
+}
+
+</script>
+
+</body>
+
+</html>
